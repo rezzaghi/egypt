@@ -1,0 +1,4 @@
+(executable
+ (public_name egypt)
+ (name main)
+ (libraries egypt unix))
