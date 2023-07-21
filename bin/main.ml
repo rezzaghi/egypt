@@ -21,31 +21,35 @@ let raw_mode config =
   in
   tcsetattr stdin TCSAFLUSH echo_state
 
-let rec main_loop buf pos =
+let clean_lines = 
+    let add_clean_line_to_buf = cat (create 0) (of_string "\x1b[2J]") in
+    let add_start_line_to_buf = cat add_clean_line_to_buf (of_string "\x1b[H") in
+    add_start_line_to_buf
+
+let rec key_loop buf pos =
   let _ = read stdin buf pos 1 in
   match get buf pos with
   (* Handle ctrl-c *)
   | '\003' ->
-      let _ = write stdout (of_string "\x1b[2J") 0 4 in
-      let _ = write stdout (of_string "\x1b[H") 0 3 in
+      let _ = write stdout clean_lines 0 (length clean_lines) in
       ()
-  | _ -> main_loop buf (pos + 1)
+  | _ -> key_loop buf (pos + 1)
 
-let rec draw_rows n =
-  if n = 0 then ()
+let rec draw_rows n buf =
+  if n = 0 then buf
   else
-    let _ = write stdout (of_string "~\r\n") 0 3 in
-    draw_rows (n - 1)
+    let new_buf = cat buf (of_string "~\r\n") in
+    draw_rows (n - 1) new_buf
 
-let () =
-  raw_mode false;
-  (* before cli buffer*)
-  let _ = write stdout (of_string "\x1b[2J") 0 4 in
-  let _ = write stdout (of_string "\x1b[H") 0 3 in
+let clean_and_draw_cli_buf = 
   let rows = match Terminal_size.get_rows () with 
   | Some i -> i
   | _ -> 0 in
-  draw_rows rows;
-  let _ = write stdout (of_string "\x1b[H") 0 3 in
-  let _ = main_loop (create 1024) 0 in
+  let add_draw_row_to_buf = draw_rows rows clean_lines in
+  cat add_draw_row_to_buf (of_string "\x1b[H")
+
+let () =
+  raw_mode false;
+  let _ = write stdout clean_and_draw_cli_buf 0 (length clean_and_draw_cli_buf) in
+  let _ = key_loop (create 1024) 0 in
   raw_mode true
