@@ -1,4 +1,4 @@
 (executable
  (public_name egypt)
  (name main)
- (libraries egypt unix))
+ (libraries egypt unix terminal_size))
